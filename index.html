@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>The Family Archive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,7 +36,7 @@
 .private{background:var(--madder);color:#fff;font:500 12.5px/1.4 var(--sans);
   padding:8px 26px;text-align:center;letter-spacing:.01em}
 .private b{font-weight:600}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--sans);
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--sans);touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   -webkit-font-smoothing:antialiased}
 :focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -260,6 +262,34 @@ body.open.tucked .tuck{transform:translateY(-50%) translateX(0)}
 .lbx{top:18px;right:20px;width:38px;height:38px;font:400 19px/1 var(--sans);z-index:2}
 .lbnav{top:50%;transform:translateY(-50%);width:46px;height:46px;font:400 21px/1 var(--sans);z-index:2}
 .lbnav.prev{left:22px} .lbnav.next{right:22px}
+@media (max-width:700px){
+  .private{padding:8px 14px;font-size:11.5px}
+  .mast-in{padding:12px 16px 10px;gap:10px 18px}
+  h1{font-size:20px}
+  .kicker{font-size:9px;letter-spacing:.12em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 32px)}
+  .figures{display:none}
+  .bar-in{padding:8px 16px 6px;gap:8px}
+  .whose{width:100%} .whose span{display:none}
+  .whose select{flex:1;max-width:none;padding:9px 10px;font-size:14px}
+  #modes{width:100%;margin:0} #modes button{flex:1;padding:10px 6px;font-size:13px}
+  input[type=search]{max-width:none;min-width:0;flex:1;padding:9px 12px;font-size:14px}
+  .zoombar .zb{padding:9px 12px;font-size:14px}
+  .note{font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #stage{min-height:380px;height:calc(100vh - 230px)}
+  .legend{left:8px;bottom:8px;gap:8px 10px;flex-wrap:wrap;font-size:9.5px;padding:5px 8px}
+  .node .nm{white-space:normal;overflow-wrap:anywhere}
+  #record{width:100%;border-left:0;box-shadow:none}
+  .recbody{padding:16px 16px 90px}
+  #record h2{font-size:22px}
+  .rechead{padding:10px 12px}
+  .tuck{padding:14px 8px;font-size:11px;max-height:50vh}
+  .node{flex-wrap:wrap;row-gap:2px;padding:8px 9px 8px 5px}
+  .node .rel{border-left:0;padding-left:0;margin-left:0;flex-basis:100%;padding-left:41px}
+  .gline{padding-left:0}
+  .deadend{padding:0 16px;min-height:44vh}
+  .veilbox{padding:22px 18px 18px}
+  .foot-in{padding:18px 16px 28px;gap:14px}
+}
 @media (max-width:820px){
   .lb{padding:64px 14px 22px;gap:16px}
   .lb .shot img{max-height:calc(100vh - 250px)}
@@ -935,27 +965,53 @@ function fit(w,h,f){
   const s=$('#stage'); if(!s)return;
   const r=s.getBoundingClientRect();
   const kw=(r.width-40)/w, kh=(r.height-40)/h;
-  pan.k=Math.min(1,Math.max(Math.min(kw,kh),READABLE));
+  pan.k=Math.min(1,Math.max(Math.min(kw,kh),innerWidth<700?.46:READABLE));
   const clamp=(v,lo,hi)=>Math.min(Math.max(v,lo),hi);
   const place=(size,extent,centre,anchor)=>
     extent*pan.k<=size-30 ? (size-extent*pan.k)/2
       : clamp(size*anchor-centre*pan.k, size-extent*pan.k-20, 20);
   const cx=f?f.x+CW/2:w/2, cy=f?f.y+CH/2:h/2;
   pan.x=place(r.width ,w,cx,.5);
-  pan.y=place(r.height,h,cy,.5);
+  pan.y=place(r.height,h,cy,innerWidth<700?.42:.5);   /* phones: clear of the legend */
   applyPan();
 }
 function wireStage(){
   const s=$('#stage');
-  s.onpointerdown=e=>{if(e.target.closest('.card'))return;
-    drag={x:e.clientX,y:e.clientY,px:pan.x,py:pan.y};panned=false;s.setPointerCapture(e.pointerId);};
-  s.onpointermove=e=>{if(!drag)return;
+  const pts=new Map(); let pinch=null;                 /* active touches, and a two-finger zoom */
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const clampK=k=>Math.min(2,Math.max(.03,k));
+  s.onpointerdown=e=>{
+    if(e.target.closest('.card'))return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); s.setPointerCapture(e.pointerId);
+    if(pts.size===1){ drag={x:e.clientX,y:e.clientY,px:pan.x,py:pan.y}; panned=false; }
+    else if(pts.size===2){                              /* second finger: start pinching */
+      drag=null; const [a,b]=[...pts.values()];
+      pinch={d:dist(a,b),k:pan.k,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,px:pan.x,py:pan.y}; }
+  };
+  s.onpointermove=e=>{
+    if(!pts.has(e.pointerId))return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&pts.size>=2){
+      const [a,b]=[...pts.values()], r=s.getBoundingClientRect();
+      const k=clampK(pinch.k*dist(a,b)/pinch.d);
+      const cx=(a.x+b.x)/2-r.left, cy=(a.y+b.y)/2-r.top;       /* fingers now… */
+      const ox=pinch.cx-r.left, oy=pinch.cy-r.top;             /* …and where they began */
+      pan.x=cx-(ox-pinch.px)*(k/pinch.k); pan.y=cy-(oy-pinch.py)*(k/pinch.k); pan.k=k;
+      panned=true; applyPan(); return;
+    }
+    if(!drag)return;
     if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>4)panned=true;
-    pan.x=drag.px+e.clientX-drag.x;pan.y=drag.py+e.clientY-drag.y;applyPan();};
-  s.onpointerup=s.onpointercancel=()=>drag=null;
+    pan.x=drag.px+e.clientX-drag.x;pan.y=drag.py+e.clientY-drag.y;applyPan();
+  };
+  s.onpointerup=s.onpointercancel=e=>{
+    pts.delete(e.pointerId);
+    if(pts.size<2)pinch=null;
+    if(pts.size===1){ const [a]=[...pts.values()]; drag={x:a.x,y:a.y,px:pan.x,py:pan.y}; }
+    else drag=null;
+  };
   s.onwheel=e=>{e.preventDefault();
     const r=s.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
-    const k=Math.min(2,Math.max(.03,pan.k*(e.deltaY<0?1.09:1/1.09)));
+    const k=clampK(pan.k*(e.deltaY<0?1.09:1/1.09));
     pan.x=mx-(mx-pan.x)*(k/pan.k); pan.y=my-(my-pan.y)*(k/pan.k); pan.k=k; applyPan();};
 }
 $('#zoombar').onclick=e=>{
@@ -980,7 +1036,8 @@ function draw(){
   const chart = mode!=='list' && !q;
   $('#zoombar').style.display=chart?'':'none';
   $('#tree').classList.toggle('flush',chart);
-  $('#modenote').textContent=NOTES[mode](P[me].name)+(chart?' Drag to move, scroll to zoom.':'');
+  const coarse=matchMedia('(pointer:coarse)').matches;
+  $('#modenote').textContent=NOTES[mode](P[me].name)+(chart?(coarse?' Drag to move, pinch to zoom.':' Drag to move, scroll to zoom.'):'');
   if(q){
     const t=q.toLowerCase();
     const hits=Object.values(P).filter(p=>p.name.toLowerCase().includes(t))
@@ -1207,7 +1264,7 @@ $('#q').oninput=draw;
 })();
 function sizeStage(){                      /* the bar wraps; don't guess its height */
   const s=$('#stage'); if(!s)return;
-  s.style.height=Math.max(520,innerHeight-s.getBoundingClientRect().top-16)+'px';
+  s.style.height=Math.max(innerWidth<700?380:520,innerHeight-s.getBoundingClientRect().top-16)+'px';
 }
 addEventListener('resize',()=>{
   if(mode!=='list'&&!$('#q').value.trim())draw(); else sizeStage();});
