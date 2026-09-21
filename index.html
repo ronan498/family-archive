@@ -537,6 +537,7 @@ function connected(from,to){
 /* Descendants read top to bottom, ancestors left to right. A descendant is drawn
    with the partners they married beside them; a partner who is themselves in the
    chart by blood is left to their own place rather than drawn twice. */
+let KIDRANK=null;   /* set by the wider view: your children ordered by which marriage they came from */
 function layout(rootId,dir){
   const inChart=new Set();
   (function walk(id){ if(inChart.has(id)||!P[id])return; inChart.add(id);
@@ -547,7 +548,8 @@ function layout(rootId,dir){
   function place(id,depth){
     if(!P[id]||seen.has(id))return null; seen.add(id);
     const next=[...new Set((dir==='down'?kids[id]:parents[id])||[])].filter(x=>P[x])
-      .sort((a,b)=>(P[a].tree_id||'').localeCompare(P[b].tree_id||''));
+      .sort((a,b)=>(KIDRANK&&id===rootId&&KIDRANK[a]!==undefined&&KIDRANK[b]!==undefined&&KIDRANK[a]-KIDRANK[b])
+                 ||(P[a].tree_id||'').localeCompare(P[b].tree_id||''));
     const ch=next.map(c=>place(c,depth+1)).filter(Boolean);
     /* A partner rides beside unless they belong under parents of their own in this
        same tree — there they are drawn in their place, not as somebody's appendage. */
@@ -644,9 +646,9 @@ const anchor=n=>n.sp.length===1 ? n.x+CW+SPGAP/2 : n.x+CW/2;
 
 /* One bracket: parents joined to each other, a single riser, a bar across the
    children, one drop into each. Used for every upward edge in the family view. */
-function upBracket(seg, childX, childTop, ups, hot){
+function upBracket(seg, childX, childTop, ups, hot, lift=0){
   const C = hot ? ' class="lineage"' : '';
-  const bar  = childTop - (GY-CH)*0.42;
+  const bar  = childTop - (GY-CH)*0.42 - lift;
   const pxs  = ups.map(c=>c.x+CW/2).sort((a,b)=>a-b);
   const pbot = Math.max(...ups.map(c=>c.y+CH));
   const join = pbot + (childTop - bar) * 0.5;
@@ -718,9 +720,10 @@ function layoutWide(me){
 
   /* a row entry: a card, and whether it is married to the entry before it */
   const E=(id,m)=>({id,m});
-  const sibsWithSpouses=(id,skip)=>{                /* [sib, sib's spouses, sib2, …] */
+  const parentKey=id=>[...new Set(parents[id]||[])].sort().join('+');
+  const sibsWithSpouses=(id,skip,which)=>{          /* [sib, sib's spouses, sib2, …] */
     const out=[];
-    siblingsOf(id).filter(x=>!skip.has(x)).sort(byDob).forEach(sib=>{
+    siblingsOf(id).filter(x=>!skip.has(x)&&(!which||which(x))).sort(byDob).forEach(sib=>{
       if(!take(sib)) return;
       const sps=(spouses[sib]||[]).filter(take);
       if(sps.length>1) out.push(E(sps[1],false), E(sib,true), E(sps[0],true), ...sps.slice(2).map(x=>E(x,true)));
@@ -736,17 +739,33 @@ function layoutWide(me){
     take(a);
     const skip=new Set([a]);
     const extras=o.extras ? extrasOf(a,o.partner).filter(take) : [];
-    const sibs=o.sibs ? sibsWithSpouses(a,skip) : [];
+    /* full siblings share both parents with the anchor; half-siblings — a parent's
+       children by someone else — form their own group and hang from that couple */
+    const myKey=parentKey(a);
+    const full=o.sibs ? sibsWithSpouses(a,skip,x=>parentKey(x)===myKey) : [];
+    const halves={};
+    if(o.sibs) siblingsOf(a).filter(x=>!skip.has(x)&&parentKey(x)!==myKey&&!placed.has(x))
+      .forEach(x=>(halves[parentKey(x)]=halves[parentKey(x)]||[]).push(x));
+    const halfRuns=Object.entries(halves).map(([k,ids])=>{
+      const run=[]; ids.sort(byDob).forEach(sib=>{ if(!take(sib))return;
+        const sps=(spouses[sib]||[]).filter(take);
+        if(sps.length>1) run.push(E(sps[1],false),E(sib,true),E(sps[0],true));
+        else { run.push(E(sib,false)); sps.forEach(sp=>run.push(E(sp,true))); } });
+      return {key:k, run, ids:ids.filter(x=>run.some(e=>e.id===x))};
+    }).filter(h=>h.run.length);
     let row;
-    if(side==='L'){                                  /* [sibs…][extras][a] */
-      row=sibs.concat(extras.map((x,i)=>E(x,i>0)), [E(a,extras.length>0)]);
-    } else {                                         /* [a][extras][sibs…] */
-      row=[E(a,false)].concat(extras.map(x=>E(x,true)), sibs);
+    if(side==='L'){                                  /* [half-sibs…][full sibs…][extras][a] */
+      row=halfRuns.flatMap(h=>h.run).concat(full, extras.map((x,i)=>E(x,i>0)), [E(a,extras.length>0)]);
+    } else {                                         /* [a][extras][full sibs…][half-sibs…] */
+      row=[E(a,false)].concat(extras.map(x=>E(x,true)), full, halfRuns.flatMap(h=>h.run));
     }
     const ups=[{id:a, up:o.up?upOf(a,o.upKind):null}]
       .concat(extras.map(x=>({id:x, up:o.extrasUp?upOf(x,'thin'):null})))
       .filter(u=>u.up);
-    return {row, ups, anchor:a};
+    const fullIds=[a].concat(full.map(e=>e.id).filter(x=>parentKey(x)===myKey));
+    const groups=[{ids:fullIds, parents:[...new Set(parents[a]||[])]}]
+      .concat(halfRuns.map(h=>({ids:h.ids, parents:h.key.split('+').filter(Boolean)})));
+    return {row, ups, anchor:a, groups};
   }
   /* the block above a person: their parents as a couple, deep (with siblings and
      their own forebears) for your line, thin (just the two cards) for in-laws */
@@ -764,7 +783,8 @@ function layoutWide(me){
     let x=0; row.forEach((e,i)=>{ if(i) x+=CW+(e.m?SPGAP:GX); e.x=x; });
     const w=row.length? row[row.length-1].x+CW : 0;
     const at=id=>{const e=row.find(e=>e.id===id); return e? e.x+CW/2 : w/2;};
-    const groups=units.map(u=>({ids:[u.anchor].concat(siblingsOf(u.anchor).filter(s=>row.some(e=>e.id===s)))}));
+    /* each unit's groups: the anchor with their full siblings first, then any half-siblings */
+    const groups=units.flatMap(u=>(u.groups||[{ids:[u.anchor],parents:[]}]).map((g,i)=>Object.assign({},g,{unit:u.anchor,rank:i})));
     const centreOf=id=>{ const g=groups.find(g=>g.ids.includes(id)); const xs=(g?g.ids:[id]).map(at);
       return (Math.min(...xs)+Math.max(...xs))/2; };
     const ch=units.flatMap(u=>u.ups.map(v=>Object.assign(v.up,{attach:centreOf(v.id), forId:v.id})));
@@ -811,7 +831,13 @@ function layoutWide(me){
 
   /* your descendants, hung from the join between you and the person you married */
   const meX=root.x0+root.row.find(e=>e.id===me).x;
+  /* children sit on the side of the partner they came from */
+  KIDRANK={};
+  (kids[me]||[]).forEach(c=>{ const other=(parents[c]||[]).find(x=>x!==me);
+    const e=other&&root.row.find(e=>e.id===other);
+    KIDRANK[c]=e?e.x:root.row.find(e=>e.id===me).x; });
   const down=layout(me,'down');
+  KIDRANK=null;
   const dr=down.find(n=>n.id===me);
   down.forEach(n=>{ n.x+=meX-dr.x; n.y=n.depth*GY; });
   dr.sp = primary && root.row.some((e,i)=>e.id===primary&&root.row[i-1]&&root.row[i-1].id===me) ? [primary] : [];
@@ -833,14 +859,39 @@ function renderWide(){
     });
     /* each block above hangs its bracket over the sibling group it belongs to */
     b.ch.forEach(up=>{
-      const g=b.groups.find(g=>g.ids.includes(up.forId))||{ids:[up.forId]};
-      const xs=g.ids.map(id=>b.row.find(e=>e.id===id)).filter(Boolean).map(e=>b.x0+e.x+CW/2).sort((a,b)=>a-b);
-      const ups=up.coreX.map(cx=>({x:up.x0+cx-CW/2, y:up.y, id:up.core[up.coreX.indexOf(cx)]}));
-      upBracket(seg, xs, b.y, ups, ups.some(u=>LINE.has(u.id))&&g.ids.some(id=>LINE.has(id)));
+      const inUp=id=>up.row.find(e=>e.id===id);
+      b.groups.filter(g=>g.unit===up.forId).forEach(g=>{
+        const xs=g.ids.map(id=>b.row.find(e=>e.id===id)).filter(Boolean).map(e=>b.x0+e.x+CW/2).sort((a,b)=>a-b);
+        if(!xs.length) return;
+        /* the couple this group came from — as drawn in the block above; if neither of
+           them is up there (unlikely), fall back to the block's core couple */
+        let ups=g.parents.map(inUp).filter(Boolean).map(e=>({x:up.x0+e.x, y:up.y, id:e.id}));
+        if(!ups.length) ups=up.coreX.map(cx=>({x:up.x0+cx-CW/2, y:up.y, id:up.core[up.coreX.indexOf(cx)]}));
+        upBracket(seg, xs, b.y, ups, ups.some(u=>LINE.has(u.id))&&g.ids.some(id=>LINE.has(id)), g.rank*16);
+      });
     });
   });
-  /* descendants use the ordinary downward wiring; you are already drawn in the row */
-  seg.push(wires(W.down,'down'));
+  /* descendants use the ordinary downward wiring, except your own children, who hang
+     from whichever of your marriages they came from; you are already drawn in the row */
+  seg.push(wires(W.down.filter(n=>n!==W.dr),'down'));
+  if(W.dr.ch.length){
+    const rowX=id=>{const e=W.root.row.find(e=>e.id===id); return e? W.root.x0+e.x : null;};
+    const byCouple={};
+    W.dr.ch.forEach(c=>{ const other=(parents[c.id]||[]).find(x=>x!==me);
+      (byCouple[other||'']=byCouple[other||'']||[]).push(c); });
+    Object.entries(byCouple).sort((a,b)=>b[1].length-a[1].length).forEach(([other,chs],k)=>{
+      const mx=rowX(me), ox=other?rowX(other):null;
+      const src = ox!==null ? (mx+ox)/2+CW/2 : mx+CW/2;
+      const bottom=W.root.y+CH, hot=LINE.has(me)&&chs.some(c=>LINE.has(c.id));
+      const C=hot?' class="lineage"':'', lift=k*16;
+      const mid=bottom+(GY-CH)*0.52-lift;
+      const xs=chs.map(c=>c.x+CW/2).sort((a,b)=>a-b);
+      seg.push(`<path${C} d="M${src} ${bottom}V${mid}"/>`);
+      const lo=Math.min(xs[0],src), hi=Math.max(xs[xs.length-1],src);
+      if(hi-lo>0.5) seg.push(`<path${C} d="M${lo} ${mid}H${hi}"/>`);
+      chs.forEach(c=>seg.push(`<path${LINE.has(me)&&LINE.has(c.id)?' class="lineage"':''} d="M${c.x+CW/2} ${mid}V${c.y}"/>`));
+    });
+  }
   W.down.filter(n=>n!==W.dr).forEach(n=>{
     cards.push({id:n.id,x:n.x,y:n.y});
     n.sp.forEach((sid,i)=>cards.push({id:sid,x:n.x+(i+1)*(CW+SPGAP),y:n.y,spouse:true}));
