@@ -989,15 +989,21 @@ function fit(w,h,f){
 }
 function wireStage(){
   const s=$('#stage');
-  const pts=new Map(); let pinch=null;                 /* active touches, and a two-finger zoom */
+  /* Every pointer is tracked, whether or not it lands on a card. One finger that does
+     not move is a tap and opens the card; one finger that moves pans; two fingers pinch
+     and pan wherever they happen to be. */
+  const pts=new Map(); let pinch=null, tap=null, fingers=0;
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const clampK=k=>Math.min(2,Math.max(.03,k));
   s.onpointerdown=e=>{
-    if(e.target.closest('.card'))return;
-    pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); s.setPointerCapture(e.pointerId);
-    if(pts.size===1){ drag={x:e.clientX,y:e.clientY,px:pan.x,py:pan.y}; panned=false; }
-    else if(pts.size===2){                              /* second finger: start pinching */
-      drag=null; const [a,b]=[...pts.values()];
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    try{ s.setPointerCapture(e.pointerId); }catch(err){}
+    fingers=Math.max(fingers,pts.size);
+    if(pts.size===1){
+      drag={x:e.clientX,y:e.clientY,px:pan.x,py:pan.y}; panned=false;
+      const card=e.target.closest('.card'); tap=card?{id:card.dataset.id,x:e.clientX,y:e.clientY}:null;
+    } else if(pts.size===2){                              /* second finger: pinch, never a tap */
+      drag=null; tap=null; const [a,b]=[...pts.values()];
       pinch={d:dist(a,b),k:pan.k,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,px:pan.x,py:pan.y}; }
   };
   s.onpointermove=e=>{
@@ -1006,26 +1012,30 @@ function wireStage(){
     if(pinch&&pts.size>=2){
       const [a,b]=[...pts.values()], r=s.getBoundingClientRect();
       const k=clampK(pinch.k*dist(a,b)/pinch.d);
-      const cx=(a.x+b.x)/2-r.left, cy=(a.y+b.y)/2-r.top;       /* fingers now… */
-      const ox=pinch.cx-r.left, oy=pinch.cy-r.top;             /* …and where they began */
+      const cx=(a.x+b.x)/2-r.left, cy=(a.y+b.y)/2-r.top;
+      const ox=pinch.cx-r.left, oy=pinch.cy-r.top;
       pan.x=cx-(ox-pinch.px)*(k/pinch.k); pan.y=cy-(oy-pinch.py)*(k/pinch.k); pan.k=k;
       panned=true; applyPan(); return;
     }
     if(!drag)return;
-    if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>4)panned=true;
+    if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>6){ panned=true; tap=null; }
     pan.x=drag.px+e.clientX-drag.x;pan.y=drag.py+e.clientY-drag.y;applyPan();
   };
   s.onpointerup=s.onpointercancel=e=>{
     pts.delete(e.pointerId);
+    if(tap&&fingers===1&&e.type==='pointerup'){          /* a clean tap on a card */
+      const id=tap.id; tap=null; suppressClick=performance.now()+500; show(id);
+    }
     if(pts.size<2)pinch=null;
     if(pts.size===1){ const [a]=[...pts.values()]; drag={x:a.x,y:a.y,px:pan.x,py:pan.y}; }
-    else drag=null;
+    else { drag=null; if(!pts.size) fingers=0; }
   };
   s.onwheel=e=>{e.preventDefault();
     const r=s.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
     const k=clampK(pan.k*(e.deltaY<0?1.09:1/1.09));
     pan.x=mx-(mx-pan.x)*(k/pan.k); pan.y=my-(my-pan.y)*(k/pan.k); pan.k=k; applyPan();};
 }
+let suppressClick=0;   /* a tap handled by the stage must not also count as a click */
 $('#zoombar').onclick=e=>{
   const b=e.target.closest('[data-z]'); if(!b)return;
   const s=$('#stage'); if(!s)return;
@@ -1188,8 +1198,12 @@ function show(id){
     <h2>${esc(p.name)}</h2>
     <div class="lede">${esc(span(p))}${p.aka&&p.aka.length?' · also '+esc(p.aka.join(', ')):''}</div>
     <div class="chips">
-      ${(()=>{const r=id===me?null:relation(me,id);
-        return r?`<span class="chip blood">${esc(r)} of ${esc(P[me].name.split(' ')[0])}</span>`
+      ${(()=>{const r=id===me?null:relation(me,id), who=P[me].name.split(' ')[0];
+        /* "sister of Ronan", but "married to Ronan’s great-grandfather", not "…of Ronan" */
+        const text=!r?'':/\byour?\b/.test(r)
+          ? r.replace(/\byour\b/g,who+'’s').replace(/\bconnected to you\b/,'connected to '+who)
+          : r+' of '+who;
+        return r?`<span class="chip blood">${esc(text)}</span>`
                 :(id===me?'<span class="chip blood">whose tree this is</span>':'');})()}
       ${p.consent_to_publish===false?'<span class="chip warn">Awaiting consent to publish</span>':''}
       ${p.consent_to_publish===true?'<span class="chip living">Agreed to appear in the shared tree</span>':''}
@@ -1226,6 +1240,7 @@ function show(id){
 
 /* ── events ──────────────────────────────────────────── */
 document.addEventListener('click',e=>{
+  if(performance.now()<suppressClick && e.target.closest('#stage')){ suppressClick=0; return; }
   const n=e.target.closest('[data-id]');
   if(n){
     /* from a search result, go to the person in the tree; anywhere else, open the record */
