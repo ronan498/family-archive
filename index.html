@@ -42,22 +42,26 @@ body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--sans
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ── masthead ─────────────────────────────────────────── */
-.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
-.mast-in{max-width:1340px;margin:0 auto;padding:13px 26px 11px;
-  display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap}
-h1{font:600 23px/1.05 var(--serif);margin:0;letter-spacing:-.012em;text-wrap:balance}
-.kicker{font:500 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
-  color:var(--ink-3);margin:0 0 5px}
-.figures{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
+.top{position:sticky;top:0;z-index:8;background:var(--surface);border-bottom:1px solid var(--rule)}
+.top-in{max-width:1340px;margin:0 auto;padding:0 26px;display:flex;align-items:center;gap:18px;min-height:46px}
+.brand{font:600 16px/1 var(--serif);letter-spacing:-.01em;white-space:nowrap}
+.ctx{flex:1;min-width:0;display:flex;align-items:center;gap:8px;justify-content:flex-start;
+  font:400 13px var(--sans);color:var(--ink-2);background:none;border:0;padding:8px 0;cursor:pointer;text-align:left}
+.ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctx b{color:var(--ink);font-weight:500}
+.ctx:hover{color:var(--indigo)}
+.chev{width:8px;height:8px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(45deg) translateY(-2px);flex:none;transition:transform .2s}
+.ctx[aria-expanded="true"] .chev{transform:rotate(-135deg) translateY(-1px)}
+.panel{border-top:1px solid var(--rule-soft);background:var(--surface)}
+.panel-in{max-width:1340px;margin:0 auto;padding:12px 26px 14px;display:flex;flex-direction:column;gap:10px}
+.prow{display:flex;gap:12px 14px;align-items:center;flex-wrap:wrap}
+.prow.meta{justify-content:space-between;align-items:flex-end;border-top:1px solid var(--rule-soft);padding-top:12px;margin-top:2px}
+.kicker{font:500 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin:0}
+.figures{display:flex;gap:22px;flex-wrap:wrap}
 .fig{text-align:right}
 .fig b{display:block;font:600 17px/1 var(--mono);font-variant-numeric:tabular-nums}
 .fig span{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
-
-/* ── controls ─────────────────────────────────────────── */
-.bar{border-bottom:1px solid var(--rule);background:var(--surface);position:sticky;top:0;z-index:8}
-.bar-in{max-width:1340px;margin:0 auto;padding:8px 26px;display:flex;gap:12px 14px;
-  align-items:center;flex-wrap:wrap}
-#modes{margin-right:auto}
 .whose{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-3)}
 .whose span{letter-spacing:.09em;text-transform:uppercase;font-weight:500;white-space:nowrap}
 .whose select{font:400 13px var(--sans);padding:5px 9px;border:1px solid var(--rule);
@@ -70,7 +74,7 @@ h1{font:600 23px/1.05 var(--serif);margin:0;letter-spacing:-.012em;text-wrap:bal
 .seg button[aria-pressed="true"]{background:var(--indigo);color:#fff}
 input[type=search]{flex:1;min-width:170px;max-width:330px;font:400 13px var(--sans);padding:6px 10px;
   border:1px solid var(--rule);border-radius:3px;background:var(--bg);color:var(--ink)}
-.note{font-size:11.5px;color:var(--ink-3);flex-basis:100%;margin:0;line-height:1.5}
+.note{font-size:11.5px;color:var(--ink-3);margin:0;line-height:1.5}
 
 /* ── layout ───────────────────────────────────────────── */
 main{max-width:1340px;margin:0 auto;padding:0 26px 40px}
@@ -114,13 +118,14 @@ ul.root>li::before,ul.root>li::after{display:none}
   padding:14px 0 5px;border-top:1px solid var(--rule-soft);margin-top:9px}
 
 /* ── chart ────────────────────────────────────────────── */
-.zoombar{display:flex;border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.zoombar{position:fixed;right:16px;bottom:16px;z-index:7;display:flex;border:1px solid var(--rule);border-radius:4px;
+  overflow:hidden;background:var(--surface);box-shadow:0 6px 18px -8px rgba(0,0,0,.35)}
 .zb{font:500 12.5px var(--mono);padding:6px 11px;border:0;border-right:1px solid var(--rule);
   background:transparent;color:var(--ink-2);cursor:pointer}
 .zb:last-child{border-right:0}
 .zb:hover{background:var(--indigo-soft);color:var(--indigo)}
 
-#stage{position:relative;overflow:hidden;height:calc(100vh - 150px);min-height:520px;
+#stage{position:relative;overflow:hidden;height:calc(100vh - 70px);min-height:520px;
   cursor:grab;touch-action:none;background:
     radial-gradient(circle at 1px 1px,var(--rule-soft) 1.1px,transparent 0) 0 0/30px 30px}
 #stage:active{cursor:grabbing}
@@ -264,19 +269,19 @@ body.open.tucked .tuck{transform:translateY(-50%) translateX(0)}
 .lbnav.prev{left:22px} .lbnav.next{right:22px}
 @media (max-width:700px){
   .private{padding:8px 14px;font-size:11.5px}
-  .mast-in{padding:12px 16px 10px;gap:10px 18px}
-  h1{font-size:20px}
-  .kicker{font-size:9px;letter-spacing:.12em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 32px)}
-  .figures{display:none}
-  .bar-in{padding:8px 16px 6px;gap:8px}
+  .top-in{padding:0 14px;gap:12px;min-height:44px}
+  .brand{font-size:15px}
+  .panel-in{padding:10px 14px 12px;gap:8px}
+  .prow{gap:8px}
+  .prow.meta{display:none}
   .whose{width:100%} .whose span{display:none}
   .whose select{flex:1;max-width:none;padding:9px 10px;font-size:14px}
   #modes{width:100%;margin:0} #modes button{flex:1;padding:10px 6px;font-size:13px}
   input[type=search]{max-width:none;min-width:0;flex:1;padding:9px 12px;font-size:14px}
-  .zoombar .zb{padding:9px 12px;font-size:14px}
+  .zoombar{right:10px;bottom:10px} .zoombar .zb{padding:9px 12px;font-size:14px}
   .note{font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  #stage{min-height:380px;height:calc(100vh - 230px)}
-  .legend{left:8px;bottom:8px;gap:8px 10px;flex-wrap:wrap;font-size:9.5px;padding:5px 8px}
+  #stage{min-height:380px}
+  .legend{left:8px;bottom:8px;gap:6px 10px;flex-wrap:wrap;font-size:9.5px;padding:5px 8px;max-width:calc(100vw - 180px)}
   .node .nm{white-space:normal;overflow-wrap:anywhere}
   #record{width:100%;border-left:0;box-shadow:none}
   .recbody{padding:16px 16px 90px}
@@ -355,31 +360,38 @@ footer{border-top:1px solid var(--rule);margin-top:0;background:var(--surface)}
 </style>
 
 
-<header class="mast"><div class="mast-in">
-  <div>
-    <p class="kicker">Golaknath · Mitter · Dutt · Chatterjee · Banerji · Singh · Netram · Mangat&nbsp;Rai</p>
-    <h1>The Family Archive</h1>
+<header class="top" id="top">
+  <div class="top-in">
+    <span class="brand">The Family Archive</span>
+    <button class="ctx" id="ctx" aria-expanded="false" aria-controls="panel"
+      title="Choose whose tree, the view, or search">
+      <span id="ctxtext"></span><i class="chev" aria-hidden="true"></i></button>
   </div>
-  <div class="figures" id="figures"></div>
-</div></header>
+  <div class="panel" id="panel" hidden>
+    <div class="panel-in">
+      <div class="prow">
+        <label class="whose"><span>Whose tree</span><select id="me"></select></label>
+        <div class="seg" id="modes">
+          <button data-m="wide" aria-pressed="true">Wider family</button>
+          <button data-m="line" aria-pressed="false">Direct line</button>
+          <button data-m="list" aria-pressed="false">List</button>
+        </div>
+        <input type="search" id="q" placeholder="Search by name…" autocomplete="off">
+      </div>
+      <p class="note" id="modenote"></p>
+      <div class="prow meta">
+        <p class="kicker">Golaknath · Mitter · Dutt · Chatterjee · Banerji · Singh · Netram · Mangat&nbsp;Rai</p>
+        <div class="figures" id="figures"></div>
+      </div>
+    </div>
+  </div>
+</header>
 
-<div class="bar"><div class="bar-in">
-  <label class="whose"><span>Whose tree</span>
-    <select id="me"></select>
-  </label>
-  <div class="seg" id="modes">
-    <button data-m="wide" aria-pressed="true">Wider family</button>
-    <button data-m="line" aria-pressed="false">Direct line</button>
-    <button data-m="list" aria-pressed="false">List</button>
-  </div>
-  <input type="search" id="q" placeholder="Search by name…" autocomplete="off">
-  <span class="zoombar" id="zoombar">
-    <button class="zb" data-z="out" aria-label="Zoom out">−</button>
-    <button class="zb" data-z="fit">Fit</button>
-    <button class="zb" data-z="in" aria-label="Zoom in">+</button>
-  </span>
-  <span class="note" id="modenote"></span>
-</div></div>
+<span class="zoombar" id="zoombar">
+  <button class="zb" data-z="out" aria-label="Zoom out">−</button>
+  <button class="zb" data-z="fit">Fit</button>
+  <button class="zb" data-z="in" aria-label="Zoom in">+</button>
+</span>
 
 <main>
   <div id="tree"></div>
@@ -1031,9 +1043,36 @@ const NOTES={
   wide:n=>`${n}’s wider family — every forebear with their brothers and sisters, everyone they married, and ${n.split(' ')[0]}’s own line below. Cousins are left out; open theirs to see them.`,
   line:n=>`${n}’s direct line — forebears above, brothers and sisters alongside, children below.`,
   list:()=>'Everyone by family name, with how each is related to you.'};
+const MODE_LABEL={wide:'Wider family',line:'Direct line',list:'List'};
+function setPanel(open){
+  $('#panel').hidden=!open; $('#ctx').setAttribute('aria-expanded',open);
+  try{ localStorage.setItem('archive.panel', open?'1':'0'); }catch(e){}
+  sizeStage();
+}
+$('#ctx').onclick=()=>setPanel($('#panel').hidden);
+(function(){ let o=false; try{ o=localStorage.getItem('archive.panel')==='1'; }catch(e){} setPanel(o); })();
+const collapseOnPhones=()=>{ if(innerWidth<700) setPanel(false); };
+
+/* A search result is a place in the tree, not just a record: land on the person. */
+function goTo(id){
+  $('#q').value='';
+  if(mode==='list') mode='wide';
+  [...$('#modes').children].forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===mode));
+  draw();
+  const card=document.querySelector(`#stage .card[data-id="${id}"]`);
+  if(card) panTo(card); else setMe(id);               /* not in this view: show their own */
+  show(id);
+}
+function panTo(card){
+  const s=$('#stage'); if(!s)return; const r=s.getBoundingClientRect();
+  const x=parseFloat(card.style.left)+CW/2, y=parseFloat(card.style.top)+CH/2;
+  const covered = innerWidth<700 ? 0 : Math.min(588, r.width*.5);   /* the record slides over the right */
+  pan.x=(r.width-covered)/2-x*pan.k; pan.y=r.height*(innerWidth<700?.42:.5)-y*pan.k; applyPan();
+}
 function draw(){
   const q=$('#q').value.trim();
   const chart = mode!=='list' && !q;
+  $('#ctxtext').innerHTML=`<b>${esc(P[me].name)}</b> · ${q?'searching':MODE_LABEL[mode]}`;
   $('#zoombar').style.display=chart?'':'none';
   $('#tree').classList.toggle('flush',chart);
   const coarse=matchMedia('(pointer:coarse)').matches;
@@ -1111,7 +1150,7 @@ function show(id){
   const p=P[id];if(!p)return;
   if(p.redacted){ veil(p); return; }
   cur=id;document.body.classList.add('open');
-  document.querySelectorAll('.node').forEach(n=>n.setAttribute('aria-current',n.dataset.id===id));
+  document.querySelectorAll('.node,.card').forEach(n=>n.setAttribute('aria-current',n.dataset.id===id));
   const M=c=>c?`<span class="mark ${c}" title="${c}">${{confirmed:'■',probable:'◧',hint:'□'}[c]||'□'}</span>`:'';
   const vit=[];
   if(!p.redacted){
@@ -1188,13 +1227,17 @@ function show(id){
 /* ── events ──────────────────────────────────────────── */
 document.addEventListener('click',e=>{
   const n=e.target.closest('[data-id]');
-  if(n){show(n.dataset.id);return;}
+  if(n){
+    /* from a search result, go to the person in the tree; anywhere else, open the record */
+    if($('#q').value.trim() && n.closest('#tree')) goTo(n.dataset.id); else show(n.dataset.id);
+    return; }
   const c=e.target.closest('[data-c]');
   if(c){
     if(c.dataset.m&&c.dataset.m!==mode){
       mode=c.dataset.m;
       [...$('#modes').children].forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===mode));
     }
+    $('#q').value='';                                 // a tree, not the search list
     setMe(c.dataset.c);
     document.body.classList.add('tucked');           // keep them selected, show the chart
     draw(); return;}
@@ -1245,7 +1288,7 @@ document.addEventListener('keydown',e=>{
 });
 $('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   mode=b.dataset.m;[...$('#modes').children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-  $('#q').value='';draw();};
+  $('#q').value='';draw();collapseOnPhones();};
 $('#q').oninput=draw;
 /* The picker is the front door: 227 names, the living ones marked so a visitor can
    find themselves rather than hunt for a forebear they may never have heard of. */
@@ -1260,7 +1303,7 @@ $('#q').oninput=draw;
       `<option value="${p.id}">${esc(p.name)}${!p.redacted&&span(p)?' · '+esc(span(p)):''}</option>`
     ).join('')+'</optgroup>').join('');
   sel.value=me;
-  sel.onchange=()=>setMe(sel.value);
+  sel.onchange=()=>{setMe(sel.value);collapseOnPhones();};
 })();
 function sizeStage(){                      /* the bar wraps; don't guess its height */
   const s=$('#stage'); if(!s)return;
