@@ -499,7 +499,6 @@ function setMe(id){ if(!P[id])return; me=id;
   try{ localStorage.setItem('archive.me', id); }catch(e){}
   const sel=$('#me'); if(sel) sel.value=id;
   draw();
-  if(cur) show(cur);          // the relationship chip has to follow the new vantage
 }
 
 /* Blood kin of whoever's tree this is: anyone who shares an ancestor with them —
